@@ -1,0 +1,5 @@
+# Runtime: the app itself uses only the Python standard library (tkinter),
+# so nothing is required to RUN it from source besides Python 3.11+ with Tk.
+#
+# The lines below are only needed to BUILD the standalone .exe.
+pyinstaller>=6.0
