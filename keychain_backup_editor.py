@@ -93,6 +93,56 @@ class EditorApp:
         self._build_ui()
         self.root.after(100, self._drain_log)
 
+        # Hidden demo mode for documentation screenshots (synthetic data only).
+        # Set KBE_DEMO=1 for the main window, KBE_DEMO=edit to also open the editor.
+        if os.environ.get("KBE_DEMO"):
+            self.root.after(250, self._load_demo)
+
+    def _load_demo(self):
+        import base64 as _b64
+        def mk(agrp, svce, acct):
+            raw = (agrp + svce + acct).encode()[:32].ljust(32, b"\0")
+            return {
+                "agrp": agrp, "svce": svce, "acct": acct,
+                "labl": svce.split(".")[-1], "pdmn": "ak", "_class": 7,
+                "cdat": "2026-11-20T10:00:00Z", "mdat": "2026-11-25T18:30:00Z",
+                "_ref": _b64.b64encode(raw).decode(),
+                "_wkey": _b64.b64encode(b"wrapped-key-bytes").decode(),
+                "sha1": _b64.b64encode(raw[:20]).decode(),
+                "v_Data": _b64.b64encode(b"<encrypted secret>").decode(),
+                "_fieldOrder": "agrp,svce,acct", "_fieldTypes": "string,string,string",
+                "_version": 3, "_length": 32,
+            }
+        demo = {
+            "General": [
+                mk("TEAMID01.com.example.notes", "com.example.notes", "user@example.com"),
+                mk("TEAMID01.com.example.notes", "com.example.notes.refresh", "session-token"),
+                mk("9ABCDE23.com.acme.rideshare", "com.acme.rideshare", "default_account"),
+                mk("9ABCDE23.com.acme.rideshare", "com.acme.rideshare.sso", "sso-group-key"),
+                mk("9ABCDE23.com.acme.rideshare", "Authentication.FormStore", "lastLoginIdentifier"),
+                mk("KLM456PQ.com.sample.bank", "com.sample.bank.pin", "device-pin"),
+            ],
+            "Internet": [
+                mk("apple", "WiFi", "HomeNetwork-5G"),
+            ],
+            "Certs": [],
+            "Keys": [
+                mk("KLM456PQ.com.sample.bank", "private-key", "rsa-2048"),
+            ],
+        }
+        self.original_dump = {g: demo.get(g, []) for g in JSON_TO_PLIST}
+        self.deleted.clear()
+        self.edits.clear()
+        self._index_records()
+        # Mark a group deleted + one item edited so the colors show in the shot.
+        for it in self.records:
+            if as_text(it["rec"].get("agrp")) == "9ABCDE23.com.acme.rideshare":
+                self.deleted.add(it["ref"])
+        self.refresh_tree()
+        self.set_status("DEMO DATA (synthetic) — marked 3 rideshare items for deletion.")
+        if os.environ.get("KBE_DEMO") == "edit" and self.records:
+            self.root.after(400, lambda: self._open_edit_dialog(self.records[0]))
+
     # ---------- UI ----------
     def _build_ui(self):
         top = ttk.Frame(self.root, padding=8)

@@ -33,6 +33,22 @@ whole device.
 
 ---
 
+## Screenshots
+
+> Shown with **synthetic demo data** — not a real keychain.
+
+![Main window](docs/screenshots/01-main.png)
+
+*Browsing the keychain. Rows highlighted red are marked for deletion (here, a
+whole access group).*
+
+![Edit item](docs/screenshots/02-edit.png)
+
+*Editing one item's fields in a form. Binary/structural fields are greyed out so
+they can't be corrupted.*
+
+---
+
 ## Download & run
 
 1. Grab `KeychainBackupEditor.exe` from the **Releases** page (or build it
