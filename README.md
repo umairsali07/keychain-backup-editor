@@ -161,7 +161,7 @@ python keychain_backup_editor.py
   `encryptkeys` commands).
 - **[iphone‑dataprotection / ios](https://github.com/dunhamsteve/ios)** by
   **Steve Dunham** — the underlying iOS backup & keychain parsing code.
-- Keychain Backup Editor GUI and the `irestore` restore fixes: **<your name / GitHub handle>**.
+- Keychain Backup Editor GUI and the `irestore` restore fixes: **[umairsali07](https://github.com/umairsali07)**.
 
 This project is **not** affiliated with Apple. iPhone, iTunes and Finder are
 trademarks of Apple Inc.
