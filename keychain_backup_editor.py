@@ -100,8 +100,9 @@ class EditorApp:
 
     def _load_demo(self):
         import base64 as _b64
+        import hashlib as _h
         def mk(agrp, svce, acct):
-            raw = (agrp + svce + acct).encode()[:32].ljust(32, b"\0")
+            raw = _h.sha1((agrp + "|" + svce + "|" + acct).encode()).digest()
             return {
                 "agrp": agrp, "svce": svce, "acct": acct,
                 "labl": svce.split(".")[-1], "pdmn": "ak", "_class": 7,
@@ -177,6 +178,8 @@ class EditorApp:
         ttk.Button(bar, text="Delete selected", command=self.delete_selected).pack(side="left", padx=4)
         ttk.Button(bar, text="Delete access group…", command=self.delete_group).pack(side="left", padx=4)
         ttk.Button(bar, text="Edit value…", command=self.edit_value).pack(side="left", padx=4)
+        ttk.Button(bar, text="Edit JSON (side)", command=self.edit_json_builtin).pack(side="left", padx=4)
+        ttk.Button(bar, text="Open in editor", command=self.edit_json_external).pack(side="left", padx=4)
         ttk.Button(bar, text="Undo marks", command=self.undo_marks).pack(side="left", padx=4)
         self.build_btn = ttk.Button(bar, text="Build backup", command=self.build_backup)
         self.build_btn.pack(side="right", padx=4)
@@ -592,6 +595,111 @@ class EditorApp:
         self.deleted.clear()
         self.edits.clear()
         self.refresh_tree()
+
+    # ---------- raw JSON editing ----------
+    def _current_edited_dump(self):
+        """The dump as it stands now (deletions removed, edits applied)."""
+        out = {g: [] for g in JSON_TO_PLIST}
+        for group, recs in self.original_dump.items():
+            for rec in recs:
+                ref = rec.get("_ref")
+                if ref in self.deleted:
+                    continue
+                out[group].append(self.edits.get(ref, rec))
+        return out
+
+    def _apply_edited_dump(self, data):
+        """Diff an edited dump against the pristine one and update marks."""
+        if not isinstance(data, dict):
+            raise ValueError("Top level must be a JSON object with "
+                             "General/Internet/Certs/Keys arrays.")
+        orig = {}
+        for recs in self.original_dump.values():
+            for rec in recs:
+                orig[rec.get("_ref")] = rec
+        seen, edits, unknown = set(), {}, 0
+        for group in JSON_TO_PLIST:
+            for rec in data.get(group) or []:
+                ref = rec.get("_ref")
+                if ref not in orig:
+                    unknown += 1
+                    continue
+                seen.add(ref)
+                if rec != orig[ref]:
+                    edits[ref] = rec
+        self.deleted = set(orig) - seen
+        self.edits = edits
+        self.refresh_tree()
+        msg = f"Applied JSON: {len(self.deleted)} deleted, {len(self.edits)} edited."
+        if unknown:
+            msg += f"  Ignored {unknown} added/unknown item(s) — items can't be added."
+        self.set_status(msg)
+
+    def edit_json_builtin(self):
+        if self.original_dump is None:
+            messagebox.showinfo("Edit JSON", "Load a backup first.")
+            return
+        text = json.dumps(self._current_edited_dump(), indent=2)
+
+        win = tk.Toplevel(self.root)
+        win.title("Edit keychain JSON")
+        win.transient(self.root)
+        win.geometry("900x640")
+        ttk.Label(win, padding=8, foreground="#444", justify="left",
+                  text=("Edit the JSON, then Apply. Delete whole { … } items to remove them; "
+                        "change values to edit.\nDon't touch _ref (items are matched by it). "
+                        "Adding new items is ignored.")).pack(fill="x")
+        txt = tk.Text(win, wrap="none", undo=True)
+        ysb = ttk.Scrollbar(win, orient="vertical", command=txt.yview)
+        txt.configure(yscrollcommand=ysb.set)
+        txt.insert("1.0", text)
+        ysb.pack(side="right", fill="y")
+        txt.pack(side="left", fill="both", expand=True)
+
+        btns = ttk.Frame(win, padding=8)
+        btns.pack(side="bottom", fill="x")
+
+        def apply():
+            try:
+                data = json.loads(txt.get("1.0", "end"))
+            except json.JSONDecodeError as e:
+                messagebox.showerror("Invalid JSON", f"Line {e.lineno}: {e.msg}", parent=win)
+                return
+            try:
+                self._apply_edited_dump(data)
+            except Exception as e:
+                messagebox.showerror("Edit JSON", str(e), parent=win)
+                return
+            win.destroy()
+
+        ttk.Button(btns, text="Apply", command=apply).pack(side="right")
+        ttk.Button(btns, text="Cancel", command=win.destroy).pack(side="right", padx=6)
+
+    def edit_json_external(self):
+        if self.original_dump is None:
+            messagebox.showinfo("Edit JSON", "Load a backup first.")
+            return
+        self.work_dir.mkdir(parents=True, exist_ok=True)
+        path = self.work_dir / "edit-me.json"
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(self._current_edited_dump(), f, indent=2, default=self._json_default)
+        try:
+            os.startfile(str(path))  # opens the system default editor
+        except Exception:
+            subprocess.Popen(["notepad.exe", str(path)])
+        if not messagebox.askokcancel(
+                "External edit",
+                "Opened in your editor:\n\n" + str(path) +
+                "\n\nEdit and SAVE the file, then click OK to import it.\n"
+                "(Delete whole items to remove them; keep _ref unchanged.)"):
+            return
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except json.JSONDecodeError as e:
+            messagebox.showerror("Invalid JSON", f"Line {e.lineno}: {e.msg}")
+            return
+        self._apply_edited_dump(data)
 
     def sort_by(self, col):
         idx = COLUMNS.index(col)

@@ -23,7 +23,9 @@ whole device.
   (access group / service / account).
 - **Delete** items — selected rows, or **every item in an access group**
   (one click).
-- **Edit** individual field values through a form (advanced; see warnings).
+- **Edit** individual field values through a form, or edit the **raw JSON**
+  directly — in a built-in side editor or your own external editor — and import
+  it back (advanced; see warnings).
 - Rebuilds a **restorable** backup, with the manifest kept consistent so iTunes
   accepts it.
 - Every run is saved in its **own folder** with the dump, the edited dump, a
@@ -74,7 +76,9 @@ they can't be corrupted.*
    - select rows and **Delete selected**, or
    - **Delete access group…** and type the app's access group
      (e.g. `5F83KRY2FH.com.ubercab.UberPartner`), or
-   - double‑click a row to **edit a value**.
+   - double‑click a row to **edit a value**, or
+   - **Edit JSON (side)** / **Open in editor** to edit the whole dump as raw
+     JSON (delete items or change values, keep `_ref` intact) and import it back.
 6. **Build backup** — creates a rebuilt backup plus a summary and restore
    instructions in the run folder.
 
